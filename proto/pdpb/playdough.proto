@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package playdoughpb;
+
+option go_package = "github.com/steinarvk/playdough/proto/pdpb;pdpb";
+
+message RequestCommon {
+    bool debug = 1;
+}
+
+message ResponseCommon {
+}
+
+message CreateAccountRequest {
+    RequestCommon common = 1;
+
+    string username = 2;
+    string password = 3;
+}
+
+message CreateAccountResponse {
+    ResponseCommon common = 1;
+}
