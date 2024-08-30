@@ -5,6 +5,7 @@ import (
 	"github.com/steinarvk/playdough/pkg/pdclient"
 	"github.com/steinarvk/playdough/pkg/pderr"
 	"github.com/steinarvk/playdough/pkg/pdservermain"
+	"github.com/steinarvk/playdough/pkg/pdtestutils"
 )
 
 func makeServeCmd() *cobra.Command {
@@ -19,6 +20,7 @@ func makeRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(makeServeCmd())
 	rootCmd.AddCommand(pdclient.MakeCobraCommandGroup())
+	rootCmd.AddCommand(pdtestutils.MakeTestingCommandGroup())
 
 	return rootCmd
 }
