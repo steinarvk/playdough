@@ -4,6 +4,17 @@ package playdoughpb;
 
 option go_package = "github.com/steinarvk/playdough/proto/pdpb;pdpb";
 
+// Sent as a request header.
+message RequestDebugSettings {
+    bool enable_debug = 1;
+}
+
+// Sent as a response header.
+message ResponseDebugInfo {
+    string trace_id = 1;
+    double server_processing_time = 2;
+}
+
 message CreateAccountRequest {
     string username = 1;
     string password = 2;
