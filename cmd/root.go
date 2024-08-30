@@ -1,30 +1,28 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
+	"github.com/steinarvk/playdough/pkg/pdclient"
+	"github.com/steinarvk/playdough/pkg/pderr"
+	"github.com/steinarvk/playdough/pkg/pdservermain"
 )
 
-func makeRootCmd() *cobra.Command {
-	run := func(cmd *cobra.Command, args []string) error {
-		fmt.Println("Hello world!")
-		return nil
-	}
+func makeServeCmd() *cobra.Command {
+	return pdservermain.NewCobraCommand()
+}
 
+func makeRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "playdough",
 		Short: "centralized ledger for toy currencies",
-		RunE:  run,
 	}
+
+	rootCmd.AddCommand(makeServeCmd())
+	rootCmd.AddCommand(pdclient.MakeCobraCommandGroup())
 
 	return rootCmd
 }
 
 func Execute() {
-	if err := makeRootCmd().Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
-		os.Exit(1)
-	}
+	pderr.HandleFatalAndDie(makeRootCmd().Execute())
 }

@@ -21,3 +21,18 @@ message CreateAccountRequest {
 message CreateAccountResponse {
     ResponseCommon common = 1;
 }
+
+message PingRequest {
+    RequestCommon common = 1;
+    string echo = 2;
+}
+
+message PingResponse {
+    ResponseCommon common = 1;
+    string echo_response = 2;
+}
+
+service PlaydoughService {
+    rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse) {}
+    rpc Ping(PingRequest) returns (PingResponse) {}
+}
