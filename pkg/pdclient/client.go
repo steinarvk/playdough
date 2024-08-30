@@ -12,15 +12,25 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
 type Client struct {
-	logger       *zap.Logger
-	conn         *grpc.ClientConn
-	grpcClient   pdpb.PlaydoughServiceClient
-	commonParams *CommonParams
+	logger           *zap.Logger
+	conn             *grpc.ClientConn
+	grpcClient       pdpb.PlaydoughServiceClient
+	commonParams     *CommonParams
+	outgoingMetadata metadata.MD
+}
+
+func (c *Client) OutgoingContext(ctx context.Context) context.Context {
+	if c.outgoingMetadata == nil {
+		return ctx
+	}
+
+	return metadata.NewOutgoingContext(ctx, c.outgoingMetadata)
 }
 
 func (c *Client) maybeDebugDump(methodName string, msgKind string, msg any) {
@@ -63,6 +73,7 @@ type CommonParams struct {
 	ServerAddress           string
 	DebugMode               bool
 	InsecureGRPCCredentials bool
+	RawAuthHeader           string
 }
 
 type CreateAccountParams struct {
@@ -112,6 +123,10 @@ func connectAndRunWithClient(ctx context.Context, commonParams *CommonParams, co
 		client.logger.Warn("running with --insecure-grpc-credentials; don't do this in production")
 
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	if commonParams.RawAuthHeader != "" {
+		client.outgoingMetadata = metadata.Pairs("Authorization", commonParams.RawAuthHeader)
 	}
 
 	opts = append(opts, grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -173,6 +188,7 @@ func MakeCobraCommandGroup() *cobra.Command {
 	group.PersistentFlags().StringVar(&params.ServerAddress, "server-address", "localhost:5044", "address of PlayDoughService gRPC server")
 	group.PersistentFlags().BoolVar(&params.DebugMode, "debug-dump-all", false, "dump all requests and responses for debugging")
 	group.PersistentFlags().BoolVar(&params.InsecureGRPCCredentials, "insecure-grpc-credentials", false, "use insecure credentials")
+	group.PersistentFlags().StringVar(&params.RawAuthHeader, "raw-auth-header", "", "raw authorization header")
 
 	for _, subcommand := range makeSubcommands() {
 		addSubcommand(group, &params, subcommand)

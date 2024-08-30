@@ -9,11 +9,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/steinarvk/playdough/pkg/ezcobra"
 	"github.com/steinarvk/playdough/pkg/logging"
+	"github.com/steinarvk/playdough/pkg/pdauth"
 	"github.com/steinarvk/playdough/pkg/pderr"
 	"github.com/steinarvk/playdough/pkg/pdserver"
 	"github.com/steinarvk/playdough/proto/pdpb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -74,13 +76,34 @@ func Main(ctx context.Context, params Params) error {
 		return err
 	}
 
+	authValidator := pdauth.NewValidator()
+
 	var opts []grpc.ServerOption
 
 	opts = append(opts, grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		t0 := time.Now()
 
-		sublogger := logger.With(zap.String("method", info.FullMethod))
+		var authHeader string
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok {
+			authHeaderValue, ok := md["authorization"]
+			if ok && len(authHeaderValue) > 0 {
+				authHeader = authHeaderValue[0]
+			}
+		}
+		authInfo, err := authValidator.ValidateHeader(authHeader)
+		if err != nil {
+			return nil, err
+		}
+		ctx = pdauth.NewContextWithAuth(ctx, authInfo)
 
+		// TODO metadata for debug settings
+
+		sublogger := logger.With(
+			zap.String("method", info.FullMethod),
+			zap.Bool("authenticated", authInfo.IsAuthenticated),
+			zap.String("username", authInfo.AuthenticatedUsername),
+		)
 		debugMode := false
 
 		ctx = logging.NewContextWithLogger(ctx, sublogger, debugMode)

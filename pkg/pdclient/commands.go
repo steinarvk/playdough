@@ -64,7 +64,7 @@ func makeCreateAccountSubcommand() *Subcommand {
 				Password: password,
 			}
 
-			if _, err := client.grpcClient.CreateAccount(ctx, req); err != nil {
+			if _, err := client.grpcClient.CreateAccount(client.OutgoingContext(ctx), req); err != nil {
 				return err
 			}
 
@@ -88,7 +88,7 @@ func makePingSubcommand() *Subcommand {
 			req := &pdpb.PingRequest{
 				Echo: echoMessage,
 			}
-			resp, err := client.grpcClient.Ping(ctx, req)
+			resp, err := client.grpcClient.Ping(client.OutgoingContext(ctx), req)
 			if err != nil {
 				return err
 			}

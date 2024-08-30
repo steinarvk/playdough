@@ -104,6 +104,10 @@ func NotImplemented(message string) error {
 	return Error(codes.Unimplemented, message)
 }
 
+func Unauthenticated(message string) error {
+	return Error(codes.Unauthenticated, message)
+}
+
 func Unexpectedf(format string, args ...any) error {
 	return AsPDError(fmt.Errorf(format, args...))
 }
