@@ -1,6 +1,9 @@
 package pdserver
 
 import (
+	"database/sql"
+
+	"github.com/steinarvk/playdough/pkg/pdauth"
 	"github.com/steinarvk/playdough/proto/pdpb"
 )
 
@@ -10,8 +13,11 @@ func (s *server) finalize() error {
 	return nil
 }
 
-func New(options ...Option) (pdpb.PlaydoughServiceServer, error) {
-	rv := &server{}
+func New(db *sql.DB, options ...Option) (pdpb.PlaydoughServiceServer, error) {
+	rv := &server{
+		db: db,
+	}
+
 	for _, opt := range options {
 		if err := opt(rv); err != nil {
 			return nil, err
@@ -20,5 +26,8 @@ func New(options ...Option) (pdpb.PlaydoughServiceServer, error) {
 	if err := rv.finalize(); err != nil {
 		return nil, err
 	}
+
+	rv.auth = pdauth.NewValidator(db)
+
 	return rv, nil
 }

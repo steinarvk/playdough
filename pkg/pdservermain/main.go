@@ -2,6 +2,7 @@ package pdservermain
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/steinarvk/playdough/pkg/ezcobra"
 	"github.com/steinarvk/playdough/pkg/logging"
 	"github.com/steinarvk/playdough/pkg/pdauth"
+	"github.com/steinarvk/playdough/pkg/pddb"
 	"github.com/steinarvk/playdough/pkg/pderr"
 	"github.com/steinarvk/playdough/pkg/pdserver"
 	"github.com/steinarvk/playdough/proto/pdpb"
@@ -28,7 +30,9 @@ type ListenAddress struct {
 }
 
 type Params struct {
-	ListenAddress ListenAddress
+	ListenAddress            ListenAddress
+	PostgresConnectionString string
+	Automigrate              bool
 }
 
 func NewCobraCommand() *cobra.Command {
@@ -43,6 +47,8 @@ func NewCobraCommand() *cobra.Command {
 	}
 
 	rv.Flags().StringVar(&params.ListenAddress.Host, "host", "localhost", "address on which to listen")
+	rv.Flags().StringVar(&params.PostgresConnectionString, "postgres_db", "", "postgres connection string")
+	rv.Flags().BoolVar(&params.Automigrate, "automigrate", true, "run database migrations on startup")
 	rv.Flags().IntVar(&params.ListenAddress.Port, "port", defaultListenPort, "port on which to listen")
 
 	return rv
@@ -64,7 +70,22 @@ func Main(ctx context.Context, params Params) error {
 		listenPort = defaultListenPort
 	}
 
-	pdServer, err := pdserver.New()
+	db, err := sql.Open("postgres", params.PostgresConnectionString)
+	if err != nil {
+		return pderr.Wrap("failed to open database connection", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		return pderr.Wrap("failed to ping database", err)
+	}
+
+	if params.Automigrate {
+		if err := pddb.RunMigrations(ctx, db); err != nil {
+			return pderr.Wrap("failed to run migrations", err)
+		}
+	}
+
+	pdServer, err := pdserver.New(db)
 	if err != nil {
 		return err
 	}
@@ -76,12 +97,16 @@ func Main(ctx context.Context, params Params) error {
 		return err
 	}
 
-	authValidator := pdauth.NewValidator()
+	authValidator := pdauth.NewValidator(db)
 
 	var opts []grpc.ServerOption
 
 	opts = append(opts, grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		t0 := time.Now()
+
+		sublogger := logger.With(
+			zap.String("method", info.FullMethod),
+		)
 
 		var authHeader string
 		md, ok := metadata.FromIncomingContext(ctx)
@@ -91,16 +116,16 @@ func Main(ctx context.Context, params Params) error {
 				authHeader = authHeaderValue[0]
 			}
 		}
-		authInfo, err := authValidator.ValidateHeader(authHeader)
+		authInfo, err := authValidator.ValidateHeader(ctx, authHeader)
 		if err != nil {
-			return nil, err
+			sublogger.Warn("token validation failed", zap.Error(err))
+			return nil, pderr.Unauthenticated("bad token")
 		}
 		ctx = pdauth.NewContextWithAuth(ctx, authInfo)
 
 		// TODO metadata for debug settings
 
-		sublogger := logger.With(
-			zap.String("method", info.FullMethod),
+		sublogger = sublogger.With(
 			zap.Bool("authenticated", authInfo.IsAuthenticated),
 			zap.String("username", authInfo.AuthenticatedUsername),
 		)

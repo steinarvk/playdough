@@ -16,6 +16,7 @@ import (
 func makeSubcommands() []*Subcommand {
 	return []*Subcommand{
 		makeCreateAccountSubcommand(),
+		makeLoginSubcommand(),
 		makePingSubcommand(),
 	}
 }
@@ -95,6 +96,50 @@ func makePingSubcommand() *Subcommand {
 
 			fmt.Printf("Pong: %s\n", resp.EchoResponse)
 			return nil
+		},
+	}
+}
+
+func makeLoginSubcommand() *Subcommand {
+	cmd := cobra.Command{
+		Use:   "login",
+		Short: "exchange login credentials for a token",
+	}
+
+	var params CreateAccountParams
+	cmd.Flags().StringVar(&params.Username, "username", "", "username of the account to log in")
+
+	return &Subcommand{
+		Command: &cmd,
+		Core: func(ctx context.Context, client *Client) error {
+			if params.Username == "" {
+				return pderr.MissingRequiredFlag("--username")
+			}
+
+			fmt.Printf("Password for user %q: ", params.Username)
+			password, err := term.ReadPassword(syscall.Stdin)
+			if err != nil {
+				return pderr.Wrap("error reading password from stdin", err)
+			}
+			fmt.Println()
+
+			if len(password) == 0 {
+				return pderr.Error(codes.InvalidArgument, "password cannot be empty")
+			}
+
+			req := &pdpb.LoginRequest{
+				Username: params.Username,
+				Password: string(password),
+			}
+
+			resp, err := client.grpcClient.Login(client.OutgoingContext(ctx), req)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Session token: %s\n", resp.SessionToken)
+
+			return err
 		},
 	}
 }
