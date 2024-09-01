@@ -14,4 +14,3 @@ CREATE TABLE jwt_keys (
 
 CREATE INDEX jwt_keys_algorithm_id_idx ON jwt_keys(jwt_key_algorithm_id);
 CREATE INDEX jwt_keys_expiration_timestamp_idx ON jwt_keys(expiration_timestamp);
-CREATE INDEX jwt_keys_jwt_key_uuid_idx ON jwt_keys(jwt_key_uuid);
