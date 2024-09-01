@@ -64,17 +64,26 @@ func hashPassword(password string, salt []byte, method *pdpb.PasswordHashingMeth
 	}
 }
 
-func isUniqueViolation(err error) bool {
+func isUniqueViolation(err error, constraintName string) bool {
 	pgerr, ok := err.(*pq.Error)
 	if !ok {
 		return false
 	}
 
-	return pgerr.Code == pq.ErrorCode("23505")
+	return pgerr.Code == pq.ErrorCode("23505") && pgerr.Constraint == constraintName
 }
 
 func (u *UserDB) RegisterUserWithPassword(ctx context.Context, tx *sql.Tx, username, password string) (*User, error) {
 	logger := logging.FromContext(ctx)
+
+	if err := CheckValidUsername(username); err != nil {
+		return nil, err
+	}
+
+	if err := CheckValidPassword(password); err != nil {
+		return nil, err
+	}
+
 	logger.Info("registering user", zap.String("username", username))
 
 	hashingMethod := getActivePasswordHashingMethod()
@@ -112,7 +121,7 @@ func (u *UserDB) RegisterUserWithPassword(ctx context.Context, tx *sql.Tx, usern
 		`,
 		userUUID, username,
 	).Scan(&userID); err != nil {
-		if isUniqueViolation(err) {
+		if isUniqueViolation(err, "users_username_key") {
 			return nil, pderr.Error(codes.AlreadyExists, "username already exists")
 		}
 		return nil, pderr.Wrap("failed to insert user", err)
