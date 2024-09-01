@@ -4,6 +4,18 @@ package playdoughpb;
 
 option go_package = "github.com/steinarvk/playdough/proto/pdpb;pdpb";
 
+message Argon2Params {
+    uint32 time_cost = 1;
+    uint32 memory_cost = 2;
+    uint32 key_length = 3;
+}
+
+message PasswordHashingMethod {
+    oneof method {
+        Argon2Params argon2 = 1;
+    }
+}
+
 // Sent as a request header.
 message RequestDebugSettings {
     bool enable_debug = 1;
@@ -21,6 +33,8 @@ message CreateAccountRequest {
 }
 
 message CreateAccountResponse {
+    string username = 1;
+    string user_uuid = 2;
 }
 
 message LoginRequest {
@@ -30,6 +44,7 @@ message LoginRequest {
 
 message LoginResponse {
     string session_token = 1;
+    string user_uuid = 2;
 }
 
 message PingRequest {

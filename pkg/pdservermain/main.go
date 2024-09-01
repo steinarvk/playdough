@@ -127,7 +127,7 @@ func Main(ctx context.Context, params Params) error {
 
 		sublogger = sublogger.With(
 			zap.Bool("authenticated", authInfo.IsAuthenticated),
-			zap.String("username", authInfo.AuthenticatedUsername),
+			zap.String("auth_username", authInfo.AuthenticatedUsername),
 		)
 		debugMode := false
 
